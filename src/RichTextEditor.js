@@ -1,6 +1,6 @@
 /* @flow */
 import React, {Component} from 'react';
-import {CompositeDecorator, Editor, EditorState, Modifier, RichUtils} from 'draft-js';
+import {CompositeDecorator, Editor, EditorState, Modifier, RichUtils, DefaultDraftBlockRenderMap} from 'draft-js';
 import getDefaultKeyBinding from 'draft-js/lib/getDefaultKeyBinding';
 import changeBlockDepth from './lib/changeBlockDepth';
 import changeBlockType from './lib/changeBlockType';
@@ -50,6 +50,8 @@ type Props = {
   disabled?: boolean; // Alias of readOnly
   toolbarConfig?: ToolbarConfig;
   blockStyleFn?: (block: ContentBlock) => ?string;
+  blockRendererFn?: (block: ContentBlock) => ?Object;
+  blockRenderMap?: {[section: string]: {[element: string]: any}};
   autoFocus?: boolean;
 };
 
@@ -85,6 +87,8 @@ export default class RichTextEditor extends Component {
       disabled,
       toolbarConfig,
       blockStyleFn,
+      blockRendererFn,
+      blockRenderMap,
       ...otherProps // eslint-disable-line comma-dangle
     } = this.props;
     let editorState = value.getEditorState();
@@ -119,6 +123,8 @@ export default class RichTextEditor extends Component {
           <Editor
             {...otherProps}
             blockStyleFn={composite(defaultBlockStyleFn, blockStyleFn)}
+            blockRendererFn={blockRendererFn && blockRendererFn}
+            blockRenderMap={blockRenderMap && blockRenderMap}
             customStyleMap={customStyleMap}
             editorState={editorState}
             handleReturn={this._handleReturn}
