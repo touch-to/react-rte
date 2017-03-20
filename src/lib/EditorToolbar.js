@@ -3,7 +3,14 @@ import {hasCommandModifier} from 'draft-js/lib/KeyBindingUtil';
 
 import React, {Component} from 'react';
 import ReactDOM from 'react-dom';
-import {EditorState, Entity, RichUtils} from 'draft-js';
+import {
+    SelectionState,
+    EditorState,
+    CompositeDecorator,
+    Entity,
+    RichUtils,
+    Modifier
+} from 'draft-js';
 import {ENTITY_TYPE} from 'draft-js-utils';
 import DefaultToolbarConfig from './EditorToolbarConfig';
 import StyleButton from './StyleButton';
@@ -11,6 +18,8 @@ import PopoverIconButton from '../ui/PopoverIconButton';
 import ButtonGroup from '../ui/ButtonGroup';
 import Dropdown from '../ui/Dropdown';
 import IconButton from '../ui/IconButton';
+import LinkDecorator from './LinkDecorator';
+import InaudibleDecorator from './InaudibleDecorator';
 import getEntityAtCursor from './getEntityAtCursor';
 import clearEntityForRange from './clearEntityForRange';
 import autobind from 'class-autobind';
@@ -35,6 +44,8 @@ type Props = {
 type State = {
   showLinkInput: boolean;
 };
+
+const compositeDecorator = new CompositeDecorator([LinkDecorator, InaudibleDecorator]);
 
 export default class EditorToolbar extends Component {
   props: Props;
@@ -202,6 +213,41 @@ export default class EditorToolbar extends Component {
       // TODO: Ensure there is some text selected.
       this.setState({showLinkInput: true});
       eventFlags.wasHandled = true;
+      return;
+    }
+
+    // Catch cmd+u for use as INAUDIBLE insertion
+    if (hasCommandModifier(event) && event.keyCode === 68) {
+      this._createSpecialTag(
+        '[INAUDIBLE]',
+        Entity.create(
+          'TOKEN',
+          'IMMUTABLE',
+          { type: 'inaudible', timestamp: this.props.currentTime || 0 }
+        )
+      );
+      eventFlags.wasHandled = true;
+      return;
+    }
+
+    // Catch cmd+t for use as CROSSTALK insertion
+    if (hasCommandModifier(event) && event.keyCode === 84) {
+      this._createSpecialTag(
+        '[CROSSTALK]',
+        Entity.create(
+          'TOKEN',
+          'IMMUTABLE',
+          { type: 'crosstalk', timestamp: this.props.currentTime || 0 }
+        )
+      );
+      eventFlags.wasHandled = true;
+      return;
+    }
+
+    // Catch cmd+u for use as INAUDIBLE insertion
+    if (hasCommandModifier(event) && event.keyCode !== 17) {
+      console.log(event.keyCode);
+      //eventFlags.wasHandled = true;
     }
   }
 
@@ -262,6 +308,68 @@ export default class EditorToolbar extends Component {
       .getBlockForKey(selection.getStartKey())
       .getType();
   }
+
+  _createSpecialTag(text, entityKey) {
+        const { editorState, onChange } = this.props;
+        const content = editorState.getCurrentContent();
+        const selection = editorState.getSelection();
+        //@TODO: we need to only add extra space needs leading/trailing space
+        const newContentState = Modifier.replaceText(
+            content,
+            selection,
+            text,
+            undefined,
+            entityKey
+        );
+        const newEditorState = EditorState.push(editorState, newContentState, 'insert-fragment');
+        const editorStateUpdate = EditorState.forceSelection(
+            newEditorState, newContentState.getSelectionAfter()
+        );
+        onChange(editorStateUpdate);
+  }
+    _createImmutableEntity(text, entityKey) {
+        const { editorState } = this.props;
+        const currentContent = editorState.getCurrentContent();
+        const selection = editorState.getSelection();
+        let newContent, newState, selectionState, focusOffset;
+
+        //@TODO: we need to only add extra space needs leading/trailing space
+        if(selection.getAnchorOffset() === selection.getFocusOffset()) {
+            newContent = Modifier.insertText(
+                currentContent,
+                selection,
+                text
+            );
+        } else {
+            newContent = Modifier.replaceText(
+                currentContent,
+                selection,
+                text
+            );
+        }
+        newState = EditorState.createWithContent(newContent, compositeDecorator);
+
+        selectionState = SelectionState.createEmpty(newContent.getFirstBlock().getKey());
+        focusOffset = selection.getFocusOffset() + text.length;
+        selectionState = selectionState.merge({
+            anchorOffset: selection.getAnchorOffset(),
+            focusKey: newContent.getFirstBlock().getKey(),
+            focusOffset: focusOffset
+        });
+        newContent = Modifier.applyEntity(newContent, selectionState, entityKey);
+        newState = EditorState.createWithContent(newContent, compositeDecorator);
+
+        selectionState = selectionState.merge({
+            anchorOffset: focusOffset,
+            focusKey: newContent.getFirstBlock().getKey(),
+            focusOffset: focusOffset
+        });
+        newState = EditorState.forceSelection(newState, selectionState);
+
+        this.props.onChange( newState );
+        this._focusEditor();
+        return;
+    }
 
   _selectBlockType() {
     this._toggleBlockType(...arguments);

@@ -72,3 +72,21 @@
 .editor ol:last-child {
   margin-bottom: 0;
 }
+
+.editor .inaudible {
+    display: inline-block;
+    color: white;
+    background-color: hsla(205, 72%, 36%, .75);
+    padding: 5px .5em 6px;
+    margin-top: -5px;
+    margin-bottom: -6px;
+}
+
+.editor .crosstalk {
+    display: inline-block;
+    color: white;
+    background-color: hsla(274, 53%, 37%, .75);
+    padding: 5px .5em 6px;
+    margin-top: -5px;
+    margin-bottom: -6px;
+}

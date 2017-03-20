@@ -10,6 +10,7 @@ import isSoftNewlineEvent from 'draft-js/lib/isSoftNewlineEvent';
 import EditorToolbar from './lib/EditorToolbar';
 import EditorValue from './lib/EditorValue';
 import LinkDecorator from './lib/LinkDecorator';
+import InaudibleDecorator from './lib/InaudibleDecorator';
 import composite from './lib/composite';
 import cx from 'classnames';
 import autobind from 'class-autobind';
@@ -81,8 +82,10 @@ export default class RichTextEditor extends Component {
       className,
       toolbarClassName,
       editorClassName,
+      editorState,
       placeholder,
       customStyleMap,
+      currentTime,
       readOnly,
       disabled,
       toolbarConfig,
@@ -91,7 +94,7 @@ export default class RichTextEditor extends Component {
       blockRenderMap,
       ...otherProps // eslint-disable-line comma-dangle
     } = this.props;
-    let editorState = value.getEditorState();
+    if(editorState === null) return null;
     customStyleMap = customStyleMap ? {...styleMap, ...customStyleMap} : styleMap;
 
     // If the user changes block type before entering any text, we can either
@@ -110,6 +113,7 @@ export default class RichTextEditor extends Component {
           className={toolbarClassName}
           keyEmitter={this._keyEmitter}
           editorState={editorState}
+          currentTime={currentTime || 0}
           onChange={this._onChange}
           focusEditor={this._focus}
           toolbarConfig={toolbarConfig}
@@ -143,7 +147,7 @@ export default class RichTextEditor extends Component {
   }
 
   _shouldHidePlaceholder(): boolean {
-    let editorState = this.props.value.getEditorState();
+    let editorState = this.props.editorState;
     let contentState = editorState.getCurrentContent();
     if (!contentState.hasText()) {
       if (contentState.getBlockMap().first().getType() !== 'unstyled') {
@@ -172,7 +176,7 @@ export default class RichTextEditor extends Component {
 
   // `shift + return` should insert a soft newline.
   _handleReturnSoftNewline(event: Object): boolean {
-    let editorState = this.props.value.getEditorState();
+    let editorState = this.props.editorState;
     if (isSoftNewlineEvent(event)) {
       let selection = editorState.getSelection();
       if (selection.isCollapsed()) {
@@ -201,7 +205,7 @@ export default class RichTextEditor extends Component {
   // If the cursor is in an empty list item when return is pressed, then the
   // block type should change to normal (end the list).
   _handleReturnEmptyListItem(): boolean {
-    let editorState = this.props.value.getEditorState();
+    let editorState = this.props.editorState;
     let selection = editorState.getSelection();
     if (selection.isCollapsed()) {
       let contentState = editorState.getCurrentContent();
@@ -222,7 +226,7 @@ export default class RichTextEditor extends Component {
   // If the cursor is at the end of a special block (any block type other than
   // normal or list item) when return is pressed, new block should be normal.
   _handleReturnSpecialBlock(): boolean {
-    let editorState = this.props.value.getEditorState();
+    let editorState = this.props.editorState;
     let selection = editorState.getSelection();
     if (selection.isCollapsed()) {
       let contentState = editorState.getCurrentContent();
@@ -245,7 +249,7 @@ export default class RichTextEditor extends Component {
   }
 
   _onTab(event: Object): ?string {
-    let editorState = this.props.value.getEditorState();
+    let editorState = this.props.editorState;
     let newEditorState = RichUtils.onTab(event, editorState, MAX_LIST_DEPTH);
     if (newEditorState !== editorState) {
       this._onChange(newEditorState);
@@ -264,7 +268,7 @@ export default class RichTextEditor extends Component {
   }
 
   _handleKeyCommand(command: string): boolean {
-    let editorState = this.props.value.getEditorState();
+    let editorState = this.props.editorState;
     let newEditorState = RichUtils.handleKeyCommand(editorState, command);
     if (newEditorState) {
       this._onChange(newEditorState);
@@ -274,12 +278,19 @@ export default class RichTextEditor extends Component {
     }
   }
 
+  /*
   _onChange(editorState: EditorState) {
     let {onChange, value} = this.props;
     if (onChange != null) {
       let newValue = value.setEditorState(editorState);
       onChange(newValue);
     }
+  }
+  */
+
+  _onChange(editorState: EditorState) {
+      const {onChange} = this.props;
+      onChange && onChange(editorState);
   }
 
   _focus() {
@@ -301,7 +312,7 @@ function defaultBlockStyleFn(block: ContentBlock): string {
   }
 }
 
-const decorator = new CompositeDecorator([LinkDecorator]);
+const decorator = new CompositeDecorator([InaudibleDecorator]);
 
 function createEmptyValue(): EditorValue {
   return EditorValue.createEmpty(decorator);
